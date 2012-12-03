@@ -62,30 +62,58 @@ def feature_is_numerical(records, index):
     return True
 
 class Split:
-    def __init__(self):
+    def __init__(self, is_numerical):
         self.is_numerical = is_numerical
 
-        self.left = None
-        self.right = None
+        self.left = []
+        self.right = []
 
         self.feature_index = None
-        self.feature_range = None
+        if is_numerical:
+            self.feature_range = None
+        else:
+            self.feature_range = {}
+
+    def add_category_range( self, value ):
+        self.feature_range[ value ] = True
+
+    def set_numerical_range( self, value ):
+        self.feature_range = value
+
+    def set_index(self, index):
+        self.feature_index = index
+
+    def fill(self, records):
+        for r in records:
+            side = self.right
+            if self.is_numerical and float(r.features[ self.feature_index ]) <= self.feature_range:
+                side = self.left
+            if not self.is_numerical and r.features[ self.feature_index ] in self.feature_range:
+                side = self.left
+            side.append( r )
+
+        # compute gain
+        """
+        self.left_gini = __gini(self.left)
+        self.right_gini = __gini(self.right)
+
+        l, r, n = len(self.left), len(self.right), float(len(records))
+        self.gain = __gini(records) - (l/n)*self.left_gini
+        """
 
 def generate_category_choice(possible):
     """Generates all distinct category splits."""
     n = len(possible)
-    #print "n=",n
     splits = []
     for i in range(1, pow(2, n-1)):
-        split = ([], [])
+        split = Split(is_numerical=False)
         for j in xrange(n):
             if (i >> j) % 2 == 1:
-                split[0].append( possible[j] )
-            else:
-                split[1].append( possible[j] )
+                split.add_category_range( possible[j] )
         splits.append( split )
     return splits
 
+"""
 def create_category_split(records, index, split):
     left, right = [], []
     for r in records:
@@ -94,6 +122,7 @@ def create_category_split(records, index, split):
         else:
             right.append(r)
     return index, split[0], left, right
+"""
 
 def generate_category_splits( records, index ):
     possible = {}
@@ -102,10 +131,13 @@ def generate_category_splits( records, index ):
     possible = possible.keys()
     splits = []
     for choice in generate_category_choice( possible ):
-        splits.append( create_category_split( records, index, choice ) )
+        #splits.append( create_category_split( records, index, choice ) )
+        choice.set_index( index )
+        choice.fill( records )
+        splits.append( choice )
     return splits
 
-
+"""
 def create_numerical_split(records, index, split_value):
     left, right = [], []
     for r in records:
@@ -114,6 +146,7 @@ def create_numerical_split(records, index, split_value):
         else:
             right.append(r)
     return index, split_value, left, right
+"""
 
 def generate_numerical_splits( records, index ):
     possible = {}
@@ -123,8 +156,12 @@ def generate_numerical_splits( records, index ):
     splits = []
 
     for i in xrange(0, len(possible)-1):
-        splits.append( create_numerical_split( records, index, int(possible[i]) ) )
-    splits.append( (index, possible[0], records, []) )
+        s = Split(is_numerical=True)
+        s.set_index( index )
+        s.fill( records )
+        splits.append( s )
+        #splits.append( create_numerical_split( records, index, int(possible[i]) ) )
+    #splits.append( (index, possible[0], records, []) )
 
     return splits
 
@@ -139,8 +176,17 @@ def generate_splits( records, index ):
 
     #print "Len splits",len(splits)
     if len(splits) == 0:
-# happens when all records have the same value in the index
-        splits = [(index, records[0].features[index], records, [])]
+# happens when all records have the same value in the feature at given index
+        #splits = [(index, records[0].features[index], records, [])]
+        split = Split( is_numerical=is_numerical )
+        split.set_index( index )
+        if is_numerical:
+            split.feature_range = records[0].features[index]
+        else:
+            split.feature_range = [records[0].features[index]]
+        split.left = records
+        split.right = []
+        splits = [ split ]
 
     return splits, is_numerical
 
@@ -155,7 +201,7 @@ class DecisionTree:
 
     def vote(self, record):
         next_voter = self.right
-        if self.numerical and int(record.features[self.criteria]) <= self.possible:
+        if self.numerical and float(record.features[self.criteria]) <= self.possible:
             next_voter = self.left
         elif not self.numerical and record.features[self.criteria] in self.possible:
             next_voter = self.left
@@ -221,17 +267,18 @@ def train_r(records, attributes, sqm):
 
     for criteria in chosen_attributes:
         splits, isnum = generate_splits( records, criteria )
-        for (meta_ind, meta_range, left, right) in splits:
-            gain = gini_gain( records, left, right )
+        for s in splits:
+        #for (meta_ind, meta_range, left, right) in splits:
+            gain = gini_gain( records, s.left, s.right )
             #print "SPLIT:\n%s\n%s" % ( left, right )
             #print "Gain:", gain
             #print "\n"
             if best_gain is None or best_gain < gain:
-                best_split = (left, right)
+                best_split = (s.left, s.right)
                 best_gain = gain
-                best_index = meta_ind
-                best_range = meta_range
-                is_numerical = isnum
+                best_index = s.feature_index #meta_ind
+                best_range = s.feature_range #meta_range
+                is_numerical = s.is_numerical #isnum
 
     #print "Best split:", best_split[0], '\n', best_split[1]
     #print "obtained for attribute @ index", best_index
@@ -418,8 +465,8 @@ def example():
 
 def main():
     records = []
-    with open('examples.csv', 'r') as csvfile:
-    #with open('train2.csv', 'r') as csvfile:
+    #with open('examples.csv', 'r') as csvfile:
+    with open('train2.csv', 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         for row in reader:
             records.append( Record( row[:-1], row[-1] ) )
