@@ -29,27 +29,33 @@ class Record:
     def pick(self):
         self.picked = True
 
-def gini(records):
-    """Computes and returns the Gini impurity measure for a set of given records."""
-    labels = {}
-    for r in records:
-        labels[ r.label ] = labels.get( r.label, 0. ) + 1.
+class Dataset:
+    def __init__(self, records = []):
+        self.records = records
+        self.size = len(records)
+        self.gini_value = None
 
-    denominator = len(records)
-    result = 1.
-    for k in labels:
-        result -= math.pow( labels[k] / denominator, 2 )
+    def gini(self):
+        if self.gini_value is None:
+            labels = {}
+            for r in self.records:
+                labels[ r.label ] = labels.get( r.label, 0. ) + 1.
+            gini = 1.
+            for key in labels:
+                gini -= math.pow( labels[key] / self.size , 2 )
+            self.gini_value = gini
 
-    return result
+        return self.gini_value
 
-def gini_split(left, right):
-    """Computes and returns the Gini impurity measure for a split"""
-    n = float(len(left)+len(right))
-    return (len(left)/n)*gini(left) + (len(right)/n)*gini(right)
+    def __iter__(self):
+        for r in self.records:
+            yield r
 
-def gini_gain( records, left, right ):
-    """Computes and returns the Gini gain for a split (records is the union of left and right)"""
-    return gini(records) - gini_split( left, right )
+    def __getitem__(self, i):
+        return self.records[i]
+
+    def __len__(self):
+        return self.size
 
 def feature_is_numerical(records, index):
     """Returns true if all values of the features at the given index are numerical in the
@@ -74,6 +80,8 @@ class Split:
         else:
             self.feature_range = {}
 
+        self.gain = -1
+
     def add_category_range( self, value ):
         self.feature_range[ value ] = True
 
@@ -92,14 +100,14 @@ class Split:
                 side = self.left
             side.append( r )
 
-        # compute gain
-        """
-        self.left_gini = __gini(self.left)
-        self.right_gini = __gini(self.right)
+        self.left = Dataset( self.left )
+        self.right = Dataset( self.right )
 
-        l, r, n = len(self.left), len(self.right), float(len(records))
-        self.gain = __gini(records) - (l/n)*self.left_gini
-        """
+        # compute gain
+        self.left_gini = self.left.gini()
+        self.right_gini = self.right.gini()
+        l, r, n = self.left.size, self.right.size, float(records.size)
+        self.gain = records.gini() - (l/n)*self.left_gini - (r/n)*self.right_gini
 
 def generate_category_choice(possible):
     """Generates all distinct category splits."""
@@ -217,7 +225,7 @@ class DecisionTree:
             ret += ', ' + self.right.__repr__()
         return ret
 
-class Decision( DecisionTree) :
+class Decision:
     def __init__(self, prediction):
         self.prediction = prediction
 
@@ -269,46 +277,48 @@ def train_r(records, attributes, sqm):
         splits, isnum = generate_splits( records, criteria )
         for s in splits:
         #for (meta_ind, meta_range, left, right) in splits:
-            gain = gini_gain( records, s.left, s.right )
+            gain = s.gain
             #print "SPLIT:\n%s\n%s" % ( left, right )
             #print "Gain:", gain
             #print "\n"
             if best_gain is None or best_gain < gain:
-                best_split = (s.left, s.right)
+                best_split = s
                 best_gain = gain
-                best_index = s.feature_index #meta_ind
-                best_range = s.feature_range #meta_range
-                is_numerical = s.is_numerical #isnum
 
     #print "Best split:", best_split[0], '\n', best_split[1]
     #print "obtained for attribute @ index", best_index
     #print "with range ", best_range
 
-    decision_tree = DecisionTree( best_index, best_range, is_numerical )
-    if gini(best_split[1]) == 0:
-        prediction = best_split[1][0].label
+    decision_tree = DecisionTree( s.feature_index, s.feature_range, s.is_numerical )
+    if s.right_gini == 0:
+    #if gini(best_split[1]) == 0:
+        prediction = s.right[0].label
+        #prediction = best_split[1][0].label
         #print "Right subtree is pure"
         #print "Prediction would be:", prediction
         decision_tree.right = Decision( prediction )
     else:
         new_attributes = attributes[:]
-        new_attributes.remove( best_index )
-        decision_tree.right = train_r( best_split[1], new_attributes, sqm )
+        new_attributes.remove( s.feature_index )
+        decision_tree.right = train_r( s.right, new_attributes, sqm )
+        #decision_tree.right = train_r( best_split[1], new_attributes, sqm )
 
-    if gini(best_split[0]) == 0:
-        prediction = best_split[0][0].label
+    if s.left_gini == 0:
+    #if gini(best_split[0]) == 0:
+        prediction = s.left[0].label
         #print "Left subtree is pure"
         #print "Prediction would be:", prediction
         decision_tree.left = Decision( prediction )
     else:
         new_attributes = attributes[:]
-        new_attributes.remove( best_index )
-        decision_tree.left= train_r( best_split[0], new_attributes, sqm )
+        new_attributes.remove( s.feature_index )
+        decision_tree.left= train_r( s.left, new_attributes, sqm )
 
     return decision_tree
 
 def grow_forest( n, records ):
-    record_number = len(records)        # N
+    dataset = Dataset( records )
+    record_number = dataset.size        # N
     features_number = len(records[0].features)   # M
 
     dts = []
@@ -318,8 +328,9 @@ def grow_forest( n, records ):
         picked_records = []
         for i in xrange( record_number ):
             ind_picked = randint(0, record_number-1)
-            records[ ind_picked ].pick()
-            picked_records.append( records[ ind_picked ] )
+            dataset[ ind_picked ].pick()
+            picked_records.append( dataset[ ind_picked ] )
+        picked_records = Dataset( picked_records )
         dts.append( train(picked_records) )
 
     return dts
