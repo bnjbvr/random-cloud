@@ -1,29 +1,17 @@
 import csv
-#import cProfile # for profiling purposes only
 import math
 from random import randint
+
+#import cProfile # for profiling purposes only
+#import guppy
 
 from Record import *
 from Dataset import *
 from DecisionTree import *
 from Split import *
 
-"""
 from mrjob.job import MRJob
 
-class MRWordCounter(MRJob):
-    def mapper(self, key, line):
-        for word in line.split():
-            yield word, 1
-
-    def reducer(self, word, occurrences):
-        yield word, sum(occurrences)
-
-    def steps(self):
-        return [self.mr(self.mapper, self.reducer),]
-"""
-
-features_type = {}
 def feature_is_numerical(records, index):
     """Returns true if all values of the features at the given index are numerical in the
     given set of records, false otherwise."""
@@ -108,6 +96,7 @@ def train_r(records, attributes, sqm, depth):
             return Decision( records.mode )
 
         best_gain = -1
+        former_best = None
         best_split = None
 
         best_index = None
@@ -123,8 +112,11 @@ def train_r(records, attributes, sqm, depth):
             for s in splits:
                 gain = s.gain
                 if best_gain < gain:
+                    former_best = best_split
                     best_split = s
                     best_gain = gain
+                    if former_best is not None:
+                        del former_best
 
     s = best_split
     decision_tree = DecisionTree( s.feature_index, s.feature_range, s.is_numerical )
@@ -138,7 +130,7 @@ def train_r(records, attributes, sqm, depth):
 
     return decision_tree
 
-def grow_forest( n, records ):
+def grow_forest( n, records, test_records = None ):
     dataset = Dataset( records )
     record_number = dataset.size        # N
 
@@ -147,13 +139,22 @@ def grow_forest( n, records ):
         print "Training", i
         #print "\n\nNEW TRAINING"
         picked_records = []
-        for i in xrange( record_number ):
+        for j in xrange( record_number ):
             ind_picked = randint(0, record_number-1)
             dataset[ ind_picked ].pick()
             picked_records.append( dataset[ ind_picked ] )
         picked_records = Dataset( picked_records )
         tree = train(picked_records)
-        dts.append( tree )
+
+        if test_records == None or len(test_records) == 0:
+            dts.append( tree )
+        else:
+            print "Voting", i
+            for tr in test_records:
+                tr.vote_for( tree.vote( tr ) )
+            del tree
+
+        del picked_records
 
         """
         print "\t> Training over. Validation..."
@@ -192,18 +193,20 @@ def main():
     test_records = []
     i = 0
     #with open('examples.csv', 'r') as csvfile:
-    #with open('titanic.csv', 'r') as csvfile:
-    with open('train2.csv', 'r') as csvfile:
+    with open('titanic.csv', 'r') as csvfile:
+    #with open('train2.csv', 'r') as csvfile:
+    #with open('KDD.csv', 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         for row in reader:
-            if i < 2000:
+            if i < 1000:
                 records.append( Record( row[:-1], row[-1] ) )
             else:
                 test_records.append( Record( row[:-1], row[-1] ) )
             i += 1
 
     print "learning with %d records" % len(records)
-    dts = grow_forest( 20, records )
+    dts = grow_forest( 10, records, test_records )
+
     correct, total = 0, 0
 
     """
@@ -231,11 +234,85 @@ def main():
                 print "%s / %s correct (%s %%)" % (correct, total, correct / float(total) * 100.)
         print "%s / %s correct (%s %%)" % (correct, total, correct / float(total) * 100.)
 
+class MRRandomForest(MRJob):
+
+    def configure_options(self):
+        super(MRRandomForest, self).configure_options()
+        self.add_passthrough_option(
+            '--trees', dest='tree_number', default=10, type='int',
+            help='number of trees to create')
+
+    def __init__(self, **kwargs):
+        super(MRRandomForest, self).__init__(**kwargs)
+
+    def dispatcher(self, key, line):
+        for i in range(self.options.tree_number): # number of trees
+            yield i, line
+
+    def tree_vote(self, tree_id, lines):
+        lines = sorted(lines)
+        reader = csv.reader( lines, delimiter=',' )
+        records = Dataset()
+        for row in reader:
+            records.append( Record( row[:-1], row[-1] ) )
+
+        picked_records = []
+        record_number = len(records)
+        for j in xrange( record_number ):
+            ind_picked = randint(0, record_number-1)
+            picked_records.append( records[ ind_picked ] )
+        picked_records = Dataset( picked_records )
+        tree = train(picked_records)
+
+        i = 0
+        for r in records:
+            yield i, ('vote', tree.vote(r))
+            yield i, ('label', r.label)
+            i += 1
+
+    def repeater(self, record_id, tuple):
+        yield record_id, tuple
+
+    def aggregator(self, record_id, t):
+        labels = {}
+        real_label = None
+        for type, value in t:
+            if type == 'label' and real_label == None:
+                real_label = value
+            elif type == 'vote':
+                labels[ value ] = labels.get( value, 0 ) + 1
+
+        major, max = None, 0
+        for vote in labels:
+            v = labels[vote]
+            if v > max:
+                major, max = vote, v
+
+        if major == real_label:
+            yield record_id, "OK"
+        else:
+            yield record_id, "NOK"
+
+        #yield real_label, labels
+
+    def job_runner_kwargs(self):
+        ret = super(MRRandomForest, self).job_runner_kwargs()
+        ret['python_bin'] = '/usr/bin/pypy'
+        return ret
+
+    def hadoop_job_runner_kwargs(self):
+        ret = super(MRRandomForest, self).hadoop_job_runner_kwargs()
+        ret['python_archives'] = ['Record.py', 'Dataset.py', 'DecisionTree.py', 'Split.py']
+        return ret
+
+    def steps(self):
+        return [self.mr(mapper=self.dispatcher, reducer=self.tree_vote), self.mr(mapper=self.repeater,
+            reducer=self.aggregator)]
 
 if __name__ == '__main__':
-    main()
-    #cProfile.run('main()')
-    #MRWordCounter.run()
+    features_type = {}
+    job = MRRandomForest()
+    job.run()
 
 def example():
     original_records = [ Record( ['>150', '1', 'Town', 'AT&T'], 'Yes' ),

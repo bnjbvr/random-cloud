@@ -9,7 +9,7 @@ class Dataset(list):
         self.labels = {}
         self.label_monotone = None
 
-        for r in self:
+        for r in records:
             self.labels[ r.label ] = self.labels.get( r.label, 0 ) + 1
 
         self.update()

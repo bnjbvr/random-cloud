@@ -12,7 +12,7 @@ class Record:
         self.picked = True
 
     def vote_for(self, value):
-        self.prediction[ value ] = self.prediction.get( value, 0 ) + 1
+        self.votes[ value ] = self.votes.get( value, 0 ) + 1
 
     def prediction(self):
         p, max = None, 0
