@@ -238,9 +238,14 @@ class MRRandomForest(MRJob):
 
     def configure_options(self):
         super(MRRandomForest, self).configure_options()
+
         self.add_passthrough_option(
             '--trees', dest='tree_number', default=10, type='int',
             help='number of trees to create')
+
+        self.add_passthrough_option(
+            '--training', dest='training_records_number', default=100, type='int',
+            help='number of training records to use')
 
     def __init__(self, **kwargs):
         super(MRRandomForest, self).__init__(**kwargs)
@@ -252,20 +257,27 @@ class MRRandomForest(MRJob):
     def tree_vote(self, tree_id, lines):
         lines = sorted(lines)
         reader = csv.reader( lines, delimiter=',' )
-        records = Dataset()
+
+        testing_records = Dataset()
+        training_records = Dataset()
+        i = 0
         for row in reader:
-            records.append( Record( row[:-1], row[-1] ) )
+            if i < self.options.training_records_number:
+                training_records.append( Record( row[0:-1], row[-1] ) )
+            else:
+                testing_records.append( Record( row[0:-1], row[-1] ) )
+            i += 1
 
         picked_records = []
-        record_number = len(records)
+        record_number = len(training_records)
         for j in xrange( record_number ):
             ind_picked = randint(0, record_number-1)
-            picked_records.append( records[ ind_picked ] )
+            picked_records.append( training_records[ ind_picked ] )
         picked_records = Dataset( picked_records )
         tree = train(picked_records)
 
         i = 0
-        for r in records:
+        for r in testing_records:
             yield i, ('vote', tree.vote(r))
             yield i, ('label', r.label)
             i += 1
