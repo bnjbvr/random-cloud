@@ -247,6 +247,9 @@ class MRRandomForest(MRJob):
             '--training', dest='training_records_number', default=100, type='int',
             help='number of training records to use')
 
+        self.add_passthrough_option(
+            '--test-all', dest='test_all', default=False, help='true if all records (training + testing) should be used for testing.', action = 'store_true')
+
     def __init__(self, **kwargs):
         super(MRRandomForest, self).__init__(**kwargs)
 
@@ -277,6 +280,11 @@ class MRRandomForest(MRJob):
         tree = train(picked_records)
 
         i = 0
+        if self.options.test_all:
+            for r in training_records:
+                yield i, ('vote', tree.vote(r))
+                yield i, ('label', r.label)
+                i += 1
         for r in testing_records:
             yield i, ('vote', tree.vote(r))
             yield i, ('label', r.label)
@@ -294,6 +302,7 @@ class MRRandomForest(MRJob):
             elif type == 'vote':
                 labels[ value ] = labels.get( value, 0 ) + 1
 
+        """
         major, max = None, 0
         for vote in labels:
             v = labels[vote]
@@ -301,9 +310,11 @@ class MRRandomForest(MRJob):
                 major, max = vote, v
 
         if major == real_label:
-            yield record_id, "OK"
+            yield record_id, labels
         else:
-            yield record_id, "NOK"
+            yield record_id, labels
+        """
+        yield record_id, labels
 
         #yield real_label, labels
 
