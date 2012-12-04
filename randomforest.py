@@ -3,6 +3,11 @@ import cProfile # for profiling purposes only
 import math
 from random import randint
 
+from Record import *
+from Dataset import *
+from DecisionTree import *
+from Split import *
+
 """
 from mrjob.job import MRJob
 
@@ -18,66 +23,6 @@ class MRWordCounter(MRJob):
         return [self.mr(self.mapper, self.reducer),]
 """
 
-class Record:
-    def __init__(self, features, label):
-        self.features = features
-        self.label = label
-        self.picked = False
-
-    def __repr__(self):
-        return ', '.join( self.features ) + ': ' + self.label
-
-    def pick(self):
-        self.picked = True
-
-
-class Dataset(list):
-    def __init__(self, records = []):
-        super(Dataset, self).__init__(records)
-
-        self.gini = None
-        self.mode = None
-        self.labels = {}
-        self.label_monotone = None
-
-        for r in self:
-            self.labels[ r.label ] = self.labels.get( r.label, 0 ) + 1
-
-        self.update()
-
-    def append(self, record):
-        super(Dataset, self).append( record )
-        self.labels[ record.label ] = self.labels.get( record.label, 0 ) + 1
-
-    def update(self):
-        self.size = len(self)
-
-        # checks values are different
-        self.monotone = self.all_same()
-
-        # compute gini value and mode
-        gini = 1.
-        mode, max = None, 0
-        for key in self.labels:
-            gini -= math.pow( float(self.labels[key]) / self.size , 2 )
-            if self.labels[key] > max:
-                mode, max = key, self.labels[key]
-        self.gini = gini
-        self.mode = mode
-        self.label_monotone = len( self.labels ) == 1
-
-    def all_same(self):
-        if self.size == 0:
-            return True
-        else:
-            comp = self[0]
-            nb_feat = len(comp.features)
-            for i in xrange(1, self.size):
-                for j in xrange(nb_feat):
-                    if comp.features[j] != self[i].features[j]:
-                        return False
-            return True
-
 features_type = {}
 def feature_is_numerical(records, index):
     """Returns true if all values of the features at the given index are numerical in the
@@ -91,47 +36,6 @@ def feature_is_numerical(records, index):
                 features_type[index] = False
                 return False
     return features_type[index]
-
-class Split:
-    def __init__(self, is_numerical):
-        self.is_numerical = is_numerical
-
-        self.left = Dataset()
-        self.right = Dataset()
-
-        self.feature_index = None
-        if is_numerical:
-            self.feature_range = None
-        else:
-            self.feature_range = {}
-
-        self.gain = -1
-
-    def add_category_range( self, value ):
-        self.feature_range[ value ] = True
-
-    def set_numerical_range( self, value ):
-        self.feature_range = value
-
-    def set_index(self, index):
-        self.feature_index = index
-
-    def place(self, records):
-        for r in records:
-            side = self.right
-            if self.is_numerical and float(r.features[ self.feature_index ]) <= self.feature_range:
-                side = self.left
-            elif not self.is_numerical and r.features[ self.feature_index ] in self.feature_range:
-                side = self.left
-            side.append( r )
-
-        self.left.update()
-        self.right.update()
-        # compute gain
-        self.left_gini = self.left.gini
-        self.right_gini = self.right.gini
-        l, r, n = self.left.size, self.right.size, float(records.size)
-        self.gain = records.gini - (l/n)*self.left_gini - (r/n)*self.right_gini
 
 def generate_category_choice(possible):
     """Generates all distinct category splits."""
@@ -152,8 +56,7 @@ def generate_category_splits( records, index ):
     possible = possible.keys()
     splits = []
     for choice in generate_category_choice( possible ):
-        choice.set_index( index )
-        choice.place( records )
+        choice.place( records, index )
         splits.append( choice )
     return splits
 
@@ -166,9 +69,8 @@ def generate_numerical_splits( records, index ):
 
     for i in xrange(0, len(possible)-1):
         s = Split(is_numerical=True)
-        s.set_index( index )
         s.set_numerical_range( i )
-        s.place( records )
+        s.place( records, index )
         splits.append( s )
 
     return splits
@@ -184,48 +86,6 @@ def generate_splits( records, index ):
 
     return splits
 
-class DecisionTree:
-    def __init__(self, index, possible, is_numerical):
-        self.criteria = index
-        self.possible = possible
-        self.numerical = is_numerical
-
-        self.left = None
-        self.right = None
-
-    def vote(self, record):
-        next_voter = self.right
-        if self.numerical and float(record.features[self.criteria]) <= self.possible:
-            next_voter = self.left
-        elif not self.numerical and record.features[self.criteria] in self.possible:
-            next_voter = self.left
-
-        return next_voter.vote( record )
-
-    def show(self, i):
-        ret = "%d: feature(%s) in range %s? yes: %d / no: %d\n" % (i, str(self.criteria), str(self.possible), 2*i, 2*i+1)
-        ret += self.left.show(2*i)
-        ret += self.right.show(2*i+1)
-        return ret
-
-    def __repr__(self):
-        return self.show(1)
-
-class Decision:
-    def __init__(self, prediction):
-        if prediction is None:
-            print "PREDICTION is none"
-        self.prediction = prediction
-
-    def show(self, i):
-        return "%d: label %s\n" % (i, str(self.prediction))
-
-    def __repr__(self):
-        return self.show(1)
-
-    def vote(self, record):
-        return self.prediction
-
 def train(records):
     m = len( records[0].features )
     sqm = int(math.sqrt(m))
@@ -236,7 +96,6 @@ def train_r(records, attributes, sqm, depth):
     if records.label_monotone or records.monotone or depth == 0:
         return Decision(records.mode)
 
-    depth -= 1
     chosen_attributes = []
     attributes_with_no_split = 0
 
@@ -246,7 +105,6 @@ def train_r(records, attributes, sqm, depth):
             chosen_attributes = [attributes[randint(0, len(attributes)-1)] for i in xrange(sqm)]
 
         if len(attributes) == 0:
-            print "LIMIT CASE ATTR SIZE"
             return Decision( records.mode )
 
         best_gain = -1
@@ -277,17 +135,9 @@ def train_r(records, attributes, sqm, depth):
     if s.left.size == 0 or s.right.size == 0:
         return Decision( records.mode )
 
-    if s.right.label_monotone or s.right.monotone:
-        decision_tree.right = Decision( s.right.mode )
-    else:
-        new_attributes = attributes[:]
-        decision_tree.right = train_r( s.right, new_attributes, sqm, depth )
-
-    if s.left.monotone or s.left.label_monotone:
-        decision_tree.left = Decision( s.left.mode )
-    else:
-        new_attributes = attributes[:]
-        decision_tree.left= train_r( s.left, new_attributes, sqm, depth )
+    depth -= 1
+    decision_tree.right = train_r( s.right, attributes, sqm, depth )
+    decision_tree.left  = train_r( s.left, attributes, sqm, depth )
 
     return decision_tree
 
@@ -308,6 +158,7 @@ def grow_forest( n, records ):
         tree = train(picked_records)
         dts.append( tree )
 
+        """
         print "\t> Training over. Validation..."
 
         test_records = []
@@ -323,8 +174,8 @@ def grow_forest( n, records ):
 
         for r in picked_records:
             r.picked = False
+        """
 
-    #print dts
     return dts
 
 def major_vote( dts, record ):
@@ -337,18 +188,24 @@ def major_vote( dts, record ):
         if votes[k] > max_vote:
             max_vote = votes[k]
             best = k
-    return k
+    return best
 
 def main():
     records = []
+    test_records = []
+    i = 0
     #with open('examples.csv', 'r') as csvfile:
     #with open('titanic.csv', 'r') as csvfile:
     with open('train2.csv', 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         for row in reader:
-            records.append( Record( row[:-1], row[-1] ) )
+            if i < 1000:
+                records.append( Record( row[:-1], row[-1] ) )
+            else:
+                test_records.append( Record( row[:-1], row[-1] ) )
+            i += 1
 
-    dts = grow_forest( 5, records )
+    dts = grow_forest( 50, records )
     correct, total = 0, 0
 
     """
@@ -356,18 +213,29 @@ def main():
         print 'dt:', dt
     """
 
+    print "On records used for learning..."
     for r in records:
-        #if not r.picked:
-            total += 1
-            if r.label == major_vote( dts, r ):
-                correct += 1
-    print "%s / %s correct" % (correct, total)
-    print "%s" % ( correct / float(total) * 100. )
+        total += 1
+        if r.label == major_vote( dts, r ):
+            correct += 1
+        if total % 10 == 0:
+            print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
+    print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
+
+    print "On test records..."
+    total, correct = 0
+    for r in test_records:
+        total += 1
+        if r.label == major_vote( dts, r ):
+            correct += 1
+        if total % 10 == 0:
+            print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
+    print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
 
 
 if __name__ == '__main__':
-    #main()
-    cProfile.run('main()')
+    main()
+    #cProfile.run('main()')
     #MRWordCounter.run()
 
 def example():
