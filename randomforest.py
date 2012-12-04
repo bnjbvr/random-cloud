@@ -1,5 +1,5 @@
 import csv
-import cProfile # for profiling purposes only
+#import cProfile # for profiling purposes only
 import math
 from random import randint
 
@@ -89,7 +89,7 @@ def generate_splits( records, index ):
 def train(records):
     m = len( records[0].features )
     sqm = int(math.sqrt(m))
-    return train_r( records, range(m), sqm, 1e30)
+    return train_r( records, range(m), sqm, 1e30 )
 
 def train_r(records, attributes, sqm, depth):
 
@@ -125,9 +125,6 @@ def train_r(records, attributes, sqm, depth):
                 if best_gain < gain:
                     best_split = s
                     best_gain = gain
-
-    #print "best split obtained for attribute @ index", best_split.feature_index
-    #print "with range ", best_split.feature_range
 
     s = best_split
     decision_tree = DecisionTree( s.feature_index, s.feature_range, s.is_numerical )
@@ -199,13 +196,14 @@ def main():
     with open('train2.csv', 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         for row in reader:
-            if i < 1000:
+            if i < 2000:
                 records.append( Record( row[:-1], row[-1] ) )
             else:
                 test_records.append( Record( row[:-1], row[-1] ) )
             i += 1
 
-    dts = grow_forest( 50, records )
+    print "learning with %d records" % len(records)
+    dts = grow_forest( 20, records )
     correct, total = 0, 0
 
     """
@@ -218,19 +216,20 @@ def main():
         total += 1
         if r.label == major_vote( dts, r ):
             correct += 1
-        if total % 10 == 0:
-            print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
-    print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
+        if total % 100 == 0:
+            print "%s / %s correct (%s %%)" % (correct, total, correct / float(total) * 100.)
+    print "%s / %s correct (%s %%)" % (correct, total, correct / float(total) * 100.)
 
-    print "On test records..."
-    total, correct = 0
-    for r in test_records:
-        total += 1
-        if r.label == major_vote( dts, r ):
-            correct += 1
-        if total % 10 == 0:
-            print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
-    print "%s / %s correct (%s %)" % (correct, total, correct / float(total) * 100.)
+    if len(test_records) > 0:
+        print "On test records..."
+        total, correct = 0, 0
+        for r in test_records:
+            total += 1
+            if r.label == major_vote( dts, r ):
+                correct += 1
+            if total % 100 == 0:
+                print "%s / %s correct (%s %%)" % (correct, total, correct / float(total) * 100.)
+        print "%s / %s correct (%s %%)" % (correct, total, correct / float(total) * 100.)
 
 
 if __name__ == '__main__':
