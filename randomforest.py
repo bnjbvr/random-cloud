@@ -1,5 +1,5 @@
 import csv
-import cProfile
+import cProfile # for profiling purposes only
 import math
 from random import randint
 
@@ -30,59 +30,53 @@ class Record:
     def pick(self):
         self.picked = True
 
-class Dataset:
 
+class Dataset(list):
     def __init__(self, records = []):
-        self.records = records
-        self.size = len(records)
+        super(Dataset, self).__init__(records)
 
         self.gini = None
         self.mode = None
         self.labels = {}
         self.label_monotone = None
 
+        for r in self:
+            self.labels[ r.label ] = self.labels.get( r.label, 0 ) + 1
+
+        self.update()
+
+    def append(self, record):
+        super(Dataset, self).append( record )
+        self.labels[ record.label ] = self.labels.get( record.label, 0 ) + 1
+
+    def update(self):
+        self.size = len(self)
+
         # checks values are different
         self.monotone = self.all_same()
 
-        # compute gini value
-        labels = {}
-        for r in self.records:
-            labels[ r.label ] = labels.get( r.label, 0. ) + 1.
+        # compute gini value and mode
         gini = 1.
-        for key in labels:
-            gini -= math.pow( labels[key] / self.size , 2 )
+        mode, max = None, 0
+        for key in self.labels:
+            gini -= math.pow( float(self.labels[key]) / self.size , 2 )
+            if self.labels[key] > max:
+                mode, max = key, self.labels[key]
         self.gini = gini
-
-        # computing mode
-        mode, max = None, 0.
-        for key in labels:
-            if labels[key] > max:
-                mode, max = key, labels[key]
         self.mode = mode
-
-        self.label_monotone = len( labels ) == 1
+        self.label_monotone = len( self.labels ) == 1
 
     def all_same(self):
         if self.size == 0:
             return True
         else:
-            comp = self.records[0]
-            for i in range(1, len(self.records)):
-                for j in range(len(comp.features)):
-                    if comp.features[j] != self.records[i].features[j]:
+            comp = self[0]
+            nb_feat = len(comp.features)
+            for i in xrange(1, self.size):
+                for j in xrange(nb_feat):
+                    if comp.features[j] != self[i].features[j]:
                         return False
             return True
-
-    def __iter__(self):
-        for r in self.records:
-            yield r
-
-    def __getitem__(self, i):
-        return self.records[i]
-
-    def __len__(self):
-        return self.size
-
 
 features_type = {}
 def feature_is_numerical(records, index):
@@ -95,15 +89,15 @@ def feature_is_numerical(records, index):
                 a = float(r.features[index])
             except:
                 features_type[index] = False
-                break
+                return False
     return features_type[index]
 
 class Split:
     def __init__(self, is_numerical):
         self.is_numerical = is_numerical
 
-        self.left = []
-        self.right = []
+        self.left = Dataset()
+        self.right = Dataset()
 
         self.feature_index = None
         if is_numerical:
@@ -131,12 +125,8 @@ class Split:
                 side = self.left
             side.append( r )
 
-        self.fill(records, self.left, self.right)
-
-    def fill(self, records, left, right ):
-        self.left = Dataset( left )
-        self.right = Dataset( right )
-
+        self.left.update()
+        self.right.update()
         # compute gain
         self.left_gini = self.left.gini
         self.right_gini = self.right.gini
@@ -192,21 +182,6 @@ def generate_splits( records, index ):
     else:
         splits = generate_category_splits( records, index )
 
-    #print "Len splits",len(splits)
-    """
-    if len(splits) == 0:
-# happens when all records have the same value in the feature at given index
-        #splits = [(index, records[0].features[index], records, [])]
-        split = Split( is_numerical=is_numerical )
-        split.set_index( index )
-        if is_numerical:
-            split.feature_range = records[0].features[index]
-        else:
-            split.feature_range = [records[0].features[index]]
-        split.fill( records, records, [] )
-        splits = [ split ]
-    """
-
     return splits
 
 class DecisionTree:
@@ -229,9 +204,7 @@ class DecisionTree:
 
     def show(self, i):
         ret = "%d: feature(%s) in range %s? yes: %d / no: %d\n" % (i, str(self.criteria), str(self.possible), 2*i, 2*i+1)
-        #if self.left is not None:
         ret += self.left.show(2*i)
-        #if self.right is not None:
         ret += self.right.show(2*i+1)
         return ret
 
@@ -267,22 +240,14 @@ def train_r(records, attributes, sqm, depth):
     chosen_attributes = []
     attributes_with_no_split = 0
 
-    #print "Attributes: ",attributes
     while len(chosen_attributes) == attributes_with_no_split:
         chosen_attributes = [attributes[randint(0, len(attributes)-1)] for i in xrange(sqm)]
-        #if len(attributes) >= sqm:
         while len(list(set(chosen_attributes))) != len(chosen_attributes):
             chosen_attributes = [attributes[randint(0, len(attributes)-1)] for i in xrange(sqm)]
-        #else:
-        #    chosen_attributes = attributes
 
         if len(attributes) == 0:
             print "LIMIT CASE ATTR SIZE"
             return Decision( records.mode )
-
-        #print "chosen attributes:"
-        #for a in chosen_attributes:
-        #    print a,
 
         best_gain = -1
         best_split = None
@@ -295,23 +260,13 @@ def train_r(records, attributes, sqm, depth):
         for criteria in chosen_attributes:
             splits = generate_splits( records, criteria )
             if len(splits) == 0:
-                #print "LEN SPLITS = 0"
                 attributes_with_no_split += 1
 
             for s in splits:
-            #for (meta_ind, meta_range, left, right) in splits:
                 gain = s.gain
-                #print "SPLIT:\n%s\n%s" % ( left, right )
-                #print "Gain:", gain
-                #print "\n"
                 if best_gain < gain:
                     best_split = s
                     best_gain = gain
-
-        #print "attributes with no split = ", attributes_with_no_split, " / len(chosen) = ", len(chosen_attributes)
-        #print "records:"
-        #for r in records:
-        #    print r
 
     #print "best split obtained for attribute @ index", best_split.feature_index
     #print "with range ", best_split.feature_range
@@ -320,29 +275,18 @@ def train_r(records, attributes, sqm, depth):
     decision_tree = DecisionTree( s.feature_index, s.feature_range, s.is_numerical )
 
     if s.left.size == 0 or s.right.size == 0:
-        #print "LIMIT CASE SIZE"
         return Decision( records.mode )
 
     if s.right.label_monotone or s.right.monotone:
         decision_tree.right = Decision( s.right.mode )
-    #if gini(best_split[1]) == 0:
-        #prediction = best_split[1][0].label
-        #print "Right subtree is pure"
-        #print "Prediction would be:", prediction
     else:
         new_attributes = attributes[:]
-        #new_attributes.remove( s.feature_index )
         decision_tree.right = train_r( s.right, new_attributes, sqm, depth )
-        #decision_tree.right = train_r( best_split[1], new_attributes, sqm )
 
     if s.left.monotone or s.left.label_monotone:
         decision_tree.left = Decision( s.left.mode )
-    #if gini(best_split[0]) == 0:
-        #print "Left subtree is pure"
-        #print "Prediction would be:", prediction
     else:
         new_attributes = attributes[:]
-        #new_attributes.remove( s.feature_index )
         decision_tree.left= train_r( s.left, new_attributes, sqm, depth )
 
     return decision_tree
@@ -363,6 +307,8 @@ def grow_forest( n, records ):
         picked_records = Dataset( picked_records )
         tree = train(picked_records)
         dts.append( tree )
+
+        print "\t> Training over. Validation..."
 
         test_records = []
         total, correct = 0, 0
