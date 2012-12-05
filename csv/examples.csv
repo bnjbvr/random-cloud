@@ -1,0 +1,16 @@
+>150,1,Town,AT&T,Yes
+<75,1,Town,AT&T,No
+<75,2,City,Sprint,No
+75..150,2,City,MCI,Yes
+75...150,2,City,Sprint,Yes
+75...150,1,Town,MCI,Yes
+75...150,2,City,AT&T,Yes
+<75,1,City,Sprint,No
+>150,1,City,MCI,Yes
+<75,2,Town,AT&T,No
+>150,2,Town,Sprint,Yes
+>150,2,Town,MCI,Yes
+75...150,2,Town,MCI,Yes
+>150,2,City,AT&T,No
+>150,2,City,MCI,No
+75...150,2,Town,AT&T,No

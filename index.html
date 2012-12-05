@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block main %}
+        <h1>RandomCloud</h1>
+
+        <div class="alert-box" style='display: none' id="infos">
+        </div>
+
+        <div class="alert-box alert" style='display: none' id="errors">
+        </div>
+
+        <form method="post" action="/forest">
+            <div class="row">
+                <div class="two mobile-one columns"></div>
+                <div class="ten columns" id="defaults"></div>
+            </div>
+
+            <div class="row">
+                <div class="two mobile-one columns">
+                    <label class="right inline" for="training">Training records:</label>
+                </div>
+                <div class="ten mobile-three columns">
+                    <textarea name="training" id="training"></textarea>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="two mobile-one columns">
+                    <label class="right inline" for="n_training">Training records</label>
+                </div>
+                <div class="ten mobile-three columns">
+                    <!--
+                    <input type="text" id="n_training" name="n_training" placeholder="Number of records used for training" />
+                    -->
+                    <select id="n_training" name="n_training">
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="two mobile-one columns">
+                    <label class="right inline" for="trees">Number of trees</label>
+                </div>
+                <div class="ten mobile-three columns">
+                    <input type="text" id="trees" name="trees" placeholder="Number of trees" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="two mobile-one columns"></div>
+                <label for="test_all">
+                    <input type="checkbox" name="test_all" id="test_all"/>
+                    Test also training records
+                </label>
+            </div>
+
+            <div class="row">
+                <input class="right" id="submit" type="submit" value="Classify"/>
+            </div>
+        </form>
+
+        <script>
+            ERRORS = {
+                'n_trees': 'The number of trees should be strictly positive and an integer.',
+                'no_trees': 'Enter a value for the number of trees.',
+            };
+
+            defaults = ['examples', 'titanic', 'digits'];
+            html = ''
+            for( var i = 0; i < defaults.length; ++i )
+            {
+                html += '<a class="button" id="default' + i + '">' + defaults[i] + '</a>';
+            }
+            $('#defaults').html( html );
+
+            training = $('#training');
+            n_training = $('#n_training');
+            infos= $('#infos');
+            errors=$('#errors');
+            trees=$('#trees');
+
+            for( var i = 0; i < defaults.length; ++i )
+            {
+                (function(a){
+                    $('#default' + a).click(function() {
+                        $.get('/default/' + defaults[a], function(data, status) {
+                            data = JSON.parse(data);
+                            training.val( data['training'] );
+                            updateLineCount();
+                            $('#n_training').val( data['n_training'] );
+                            infos.text( data['description'] );
+                            infos.show();
+                        });
+                    });
+                })(i);
+            }
+
+            function updateLineCount() {
+                nlignes = training.val().split('\n').length;
+                html = '';
+                for( var i = 0; i < nlignes; ++i )
+                {
+                    html += '<option value=' + (i+1) + '>' + (i+1) + '</option>';
+                }
+                n_training.html( html );
+                infos.hide();
+                errors.hide();
+            }
+            training.keyup( updateLineCount );
+
+            submittable = false;
+            $('#submit').click(function(e) {
+                return can_submit();
+            });
+
+            function update_submit()
+            {
+                submittable = can_submit();
+            };
+            function can_submit()
+            {
+                if(trees.val().length === 0)
+                {
+                    errors.text(ERRORS.no_trees);
+                    errors.show();
+                    return false;
+                }
+
+                a = parseFloat(trees.val());
+                if(isNaN(a) || a !== Math.ceil(a) || a <= 0)
+                {
+                    errors.text(ERRORS.n_trees);
+                    errors.show();
+                    return false;
+                }
+
+                errors.hide();
+                return true;
+            }
+            trees.keyup(update_submit);
+
+        </script>
+{% end %}

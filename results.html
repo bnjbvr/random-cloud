@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block main %}
+        <h3>Results</h3>
+        <p>There is a total of {{ stats['total'] }} records.<br/>
+        Among them, {{ stats['correct'] }} have been correctly labelled, which represents {{ stats['correct_r'] }} % of
+        the records.<br/>
+        <a href="/">Back</a>
+        </p>
+        <table style="border: solid black 1px;">
+        {% for r in results %}
+            <tr style='{% if r.correctly %}
+                color:green;
+                {% else %}
+                color:red;
+                {% end if %}'>
+
+                <td>Real label: {{ r.label }}</td>
+                {% for k in r.votes %}
+                    <td>Prediction: {{ k }} (confidence: {{ r.votes[k][0] }} = {{ r.votes[k][1] }}%)</td>
+                {% end for %}
+            </tr>
+        {% end for %}
+        </table>
+{% end %}
