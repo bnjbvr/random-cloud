@@ -66,7 +66,6 @@ def generate_numerical_splits( records, index ):
 def generate_splits( records, index ):
     splits = []
     is_numerical = feature_is_numerical( records, index )
-    #print "FEATURE", index, "NUMERICAL?", is_numerical
     if is_numerical:
         splits = generate_numerical_splits( records, index )
     else:
@@ -137,7 +136,6 @@ def grow_forest( n, records, test_records = None ):
     dts = []
     for i in xrange(n):
         print "Training", i
-        #print "\n\nNEW TRAINING"
         picked_records = []
         for j in xrange( record_number ):
             ind_picked = randint(0, record_number-1)
@@ -282,12 +280,10 @@ class MRRandomForest(MRJob):
         i = 0
         if self.options.test_all:
             for r in training_records:
-                yield i, ('vote', tree.vote(r))
-                yield i, ('label', r.label)
+                yield i, tree.vote(r)
                 i += 1
         for r in testing_records:
-            yield i, ('vote', tree.vote(r))
-            yield i, ('label', r.label)
+            yield i, tree.vote(r)
             i += 1
 
     def repeater(self, record_id, tuple):
@@ -295,28 +291,9 @@ class MRRandomForest(MRJob):
 
     def aggregator(self, record_id, t):
         labels = {}
-        real_label = None
-        for type, value in t:
-            if type == 'label' and real_label == None:
-                real_label = value
-            elif type == 'vote':
-                labels[ value ] = labels.get( value, 0 ) + 1
-
-        """
-        major, max = None, 0
-        for vote in labels:
-            v = labels[vote]
-            if v > max:
-                major, max = vote, v
-
-        if major == real_label:
-            yield record_id, labels
-        else:
-            yield record_id, labels
-        """
+        for value in t:
+            labels[ value ] = labels.get( value, 0 ) + 1
         yield record_id, labels
-
-        #yield real_label, labels
 
     def job_runner_kwargs(self):
         ret = super(MRRandomForest, self).job_runner_kwargs()
@@ -332,136 +309,43 @@ class MRRandomForest(MRJob):
         return [self.mr(mapper=self.dispatcher, reducer=self.tree_vote), self.mr(mapper=self.repeater,
             reducer=self.aggregator)]
 
+def launch_job(text, training_number, trees_number, test_all, env='local'):
+    global features_type
+    features_type = {}
+
+    chosen_args = ['-v']
+
+    if env != 'hadoop':
+        text = text.split('\n')
+
+    chosen_args.extend(['-r', env])
+
+    chosen_args.append('--trees')
+    if isinstance(trees_number, int):
+        trees_number = str(trees_number)
+    chosen_args.append(trees_number)
+
+    if test_all:
+        chosen_args.append('--test-all')
+
+    chosen_args.append('--training')
+    if isinstance(training_number, int):
+        training_number = str(training_number)
+    chosen_args.append(training_number)
+
+    job = MRRandomForest(args=chosen_args)
+    f = file('output', 'w+')
+    job.sandbox(stdin=text)
+    runner = job.make_runner()
+    runner.run()
+
+    result = []
+    for line in runner.stream_output():
+        key, value = job.parse_output_line(line)
+        result.append( (key, value) )
+    return result
+
 if __name__ == '__main__':
     features_type = {}
     job = MRRandomForest()
     job.run()
-
-def example():
-    original_records = [ Record( ['>150', '1', 'Town', 'AT&T'], 'Yes' ),
-            Record( ['<75', '1', 'Town', 'AT&T'], 'No' ),
-            Record( ['<75', '2', 'City', 'Sprint'], 'No' ),
-            Record( ['75..150', '2', 'City', 'MCI'], 'Yes' ),
-            Record( ['75..150', '2', 'City', 'Sprint'], 'Yes' ),
-            Record( ['75..150', '1', 'Town', 'MCI'], 'Yes' )]
-    records = original_records[:]
-
-    dt = train(records)
-
-    print "\nEND OF TRAINING"
-    print dt
-    for r in records:
-        print "Record", r
-        p = dt.vote(r)
-        print "Prediction:", p, '\n'
-        if p != r.label:
-            print "FATAL ERROR HERE"
-            break
-
-    """
-    m = len(records[0].features)
-    best_gain = None
-    best_split = None
-
-    best_index = None
-    best_range = None
-    is_numerical = None
-
-    decision_tree = None
-
-    for i in (1, 3):
-        splits, isnum = generate_splits( records, i )
-        for (meta_ind, meta_range, left, right) in splits:
-            gain = gini_gain( records, left, right )
-            print "SPLIT:\n%s\n%s" % ( left, right )
-            print "Gain:", gain
-            print "\n"
-            if best_gain is None or best_gain < gain:
-                best_split = (left, right)
-                best_gain = gain
-                best_index = meta_ind
-                best_range = meta_range
-                is_numerical = isnum
-    print "Best split:", best_split[0], '\n', best_split[1]
-    print "obtained for attribute @ index", best_index
-    print "with range ", best_range
-
-    decision_tree = DecisionTree( best_index, best_range, is_numerical )
-    if gini(best_split[1]) == 0:
-        print "Right subtree is pure"
-        prediction = best_split[1][0].label
-        print "Prediction would be:", prediction
-        decision_tree.right = Decision( prediction )
-    else:
-# apply same procedure recursively to right tree
-        pass
-
-    records = left[:]
-    best_gain = None
-    for i in (0, 2):
-        splits, isnum = generate_splits( records, i )
-        for (meta_ind, meta_range, left, right) in splits:
-            gain = gini_gain( records, left, right )
-            print "SPLIT:\n%s\n%s" % ( left, right )
-            print "Gain:", gain
-            print "\n"
-            if best_gain is None or best_gain < gain:
-                best_split = (left, right)
-                best_gain = gain
-                best_index = meta_ind
-                best_range = meta_range
-    print "Best split:", best_split
-    print "obtained for attribute @ index", best_index
-    print "with range ", best_range
-
-    decision_tree.left = DecisionTree( best_index, best_range, is_numerical )
-    tree = decision_tree.left
-
-    if gini(best_split[0]) == 0:
-        print "sub left is pure"
-        tree.left = Decision( best_split[0][0].label )
-
-    if gini(best_split[1]) == 0:
-        print "sub right is pure"
-        tree.right = Decision( best_split[1][0].label )
-
-    print "\n"
-    print "Decision tree: ", decision_tree
-    print "\n"
-
-# current mci => yes
-# otherwise:
-    # phone usage < 75 => no
-    # else => yes
-    test_records = [
-            Record( ['<75', '2', 'City', 'MCI'], 'Yes' ),
-            Record( ['<75', '1', 'Town', 'AT&T'], 'No' ),
-            Record( ['75..150', '1', 'Town', 'MCI'], 'Yes'),
-            Record( ['75..150', '2', 'City', 'AT&T'], 'Yes')
-            ]
-
-    for r in test_records:
-        print "Record", r
-        print "Label:", r.label
-        print "Predicted label:", decision_tree.vote( r )
-    """
-
-    """
-    l,r = create_category_split( records, 1, (['MCI'], []) )
-    #l,r = create_numerical_split( records, 0, 1 )
-    print "Left"
-    for a in l:
-        print a
-    print "Right"
-    for a in r:
-        print a
-
-    print "Gini left: %s" % ( gini(l) )
-    print "Gini right: %s" % ( gini(r) )
-    print "Gini split: %s" % ( gini(records) - gini_split(l,r) )
-
-    for split in generate_category_split(['A', 'B', 'C', 'D']):
-        print split
-    """
-
-

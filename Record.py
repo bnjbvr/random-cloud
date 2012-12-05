@@ -4,6 +4,7 @@ class Record:
         self.label = label
         self.votes = {}
         self.picked = False
+        self.correctly = True
 
     def __repr__(self):
         return ', '.join( self.features ) + ': ' + self.label
