@@ -8,7 +8,129 @@
 
         <div class="row">
             <div class="right inline two mobile-one columns"></div>
-            <div class="ten columns">Lorem Ipsum toussa toussa</div>
+            <div class="ten columns">
+                <h3>What is RandomCloud?</h3>
+                <p>RandomCloud is a machine learning / data mining project for computing Random Forests in a cluster of
+                computers located in the Internet, also called "cloud".<br/>
+                It has been implemented by Benjamin Bouvier, for a term project implementation (option2)
+                in Data Mining class.
+                </p>
+
+                <h3>What are Random Forests?</h3>
+                <p>
+                You may want to read <a href="http://en.wikipedia.org/wiki/Random_forest">this Wikipedia article</a>.
+                Basically, Random Forest is a classification algorithm, for predicting labels of records, according to
+                previous well-known labelled records. It's based on a random subspace method:
+                <ul>
+                    <li>A certain number of classification trees are grown, based on training records.</li>
+                    <li>For each tested records, each tree will emit a vote for the prediction label.</li>
+                    <li>The predicted label is the one with the higher votes.</li>
+                </ul>
+                </p>
+
+                <h3>How to use this website?</h3>
+                <p>This website proposes you to upload your own dataset, in CSV format, and launch the Random Forest
+                algorithm on this dataset. As it is
+                implemented, it will train and test records which are already labelled. Measures of performances are
+                established thanks to the tested records.</p>
+
+                <h4>Input format</h4>
+                <p>Your training records have to follow these rules:
+                <ul>
+                    <li>Each feature is separated from the following by a comma (Comma Separated Values format).</li>
+                    <li>The last feature must be the real label</li>
+                    <li>The other features are the ones used for training and predicting.</li>
+                </ul>
+                </p>
+
+                <h4>Parameters</h4>
+                <p>The parameters that you can set are the following:
+                <ul>
+                    <li>The number of training records must be between 1 (inclusive) and the total number of records
+                    (inclusive). The more training records, the slower the algorithm. This value will update
+                    automatically as you enter the input. Default value: 75% of the records.</li>
+                    <li>The number of trees to be grown in the forest must be an integer positive, between 10 and 1,000.
+                    If a bad value is entered, the server will correct automatically: for values less than 10, the
+                    number of trees will be 10; for values higher than 1,000, the number of trees will be 1,000. The
+                    higher the number of trees, the slower the algorithm.</li>
+                    <li>The option "also test training records" allows to test the training records once the trees are
+                    grown. If this option is checked, all records will be tested once the forest is grown. If this
+                    option is not checked, only the records that haven't been used for training will be tested (which
+                    amount is the total number of records minus the number of training records).</li>
+                </ul>
+                </p>
+
+                <h4>Available datasets</h4>
+                <p>As entering datasets may take time, three datasets are proposed to the user:
+                    <ul>
+                        <li><strong>examples</strong>: basically, the problem is the following: can we predict that a
+                        customer will change phone plan according to his profile? This dataset contains 16 records and
+                        a few features. It's quite
+                        fast to compute this classification task, even with full parameters. Copyright: Jason Wang.</li>
+                        <li><strong>titanic</strong>: from <a
+                            href="http://www.kaggle.com/c/titanic-gettingStarted">Kaggle</a>. The problem is the
+                        following: can we predict if somebody in the Titanic will survive according to his profile?
+                        This dataset contains
+                        about 900 records with a few features. The computation time is medium, even with full
+                        parameters.</li>
+                        <li><strong>digits</strong>: from <a href="http://www.kaggle.com/c/digit-recognizer">Kaggle</a>.
+                        The problem is the following: knowing an image by gray values of each pixel, can we recognize
+                        the written digit? This dataset contains 1,000 records with a lot of features. The computation
+                        time is definitely the highest among the 3 proposed datasets.
+                        </li>
+                    </ul>
+                </p>
+
+                <h4>Output format</h4>
+                <p>The output will present some statistics about the input and the results. A table containing the real
+                record label and possible prediction is then showed to the user. A green line means that the record has
+                been predicted correctly; a red line means that the record has been wrongly predicted.
+                </p>
+
+                <h4>Why are the results so slow to show?</h4>
+                <p>There are several reasons if the result takes time to come:
+                <ul>
+                    <li>If the input contains a lot of features and / or the number of trees is large, the algorithm
+                    will have to grow a lot of trees. And trees take time to be grown, even in computer land.</li>
+                    <li>Whatever the processing time of the algorithm, there is an overload due to the fact that the
+                    task has to be splitted among the nodes of the cluster. A "fast task" that could be launched in 20
+                    seconds sequentially may take up to 2 or 3 minutes to get launched on the cluster.</li>
+                    <li>As there is only one queue for the jobs, if the cluster is already occupied, your task may be
+                    put in a waiting queue. The rule is: first in, first out. If the launch does not end within 10
+                    minutes, try it again later or contact the author.</li>
+                </ul>
+                </p>
+
+                <h3>What technologies and architecture are used for this web site?</h3>
+                <ul>
+                    <li><strong>Cluster</strong>: the cluster is a <a href="http://hadoop.apache.org/">Apache
+                        Hadoop</a>, composed of one master and 4 slaves. The configuration of the Hadoop cluster has
+                    fully been made by hand. All nodes are virtual machines provided by <a
+                        href="http://www.twitter.com/gaetantri">Gaetan Trivino</a>, a friend of mine that I would like
+                    to thank for all the help he provided for setting up the cluster.</li>
+                    <li><strong>Map Reduce job</strong>: the map reduce job and the algorithm itself are programmed in
+                    Python, using the framework <a href="http://packages.python.org/mrjob/">mrjob</a>, that helps a lot
+                    for writing and running Hadoop streaming jobs. Moreover, the interpreter used for running the
+                    algorithm is <a href="http://pypy.org">Pypy</a>, a pretty efficient Just-In-Time compiler for Python code.</li>
+                    <li><strong>Back-end</strong>: the web server is programmed in Python, using the <a
+                        href="http://www.tornadoweb.org/">Tornado</a> web framework, allowing easyly asynchronous
+                    handling of requests. Each time you press the "Classify" button, the server sends a new job to the
+                    cluster.</li>
+                    <li><strong>Front-end</strong>: the web site is programmed in HTML5 and JavaScript (JQuery). The CSS
+                    framework <a href="http://foundation.zurb.com/">Foundation</a> is intensively used to provide a
+                    responsive design, allowing access on all kinds of terminal (computer, tablets, smartphones, etc.).
+                    </li>
+                </ul>
+
+                <h3>Contact</h3>
+                <p>Thank you for your interest.<br/>
+                If you have spotted a bug somewhere, please contact me.<br/>
+                If you have any questions or remarks, don't hesitate to contact me on my
+                <a href="benjamin.bouvier@gmail.com">personal email</a> or on <a
+                    href="http://www.twitter.com/njbenji/">Twitter</a>.</p>
+
+                <h3>Form</h3>
+            </div>
         </div>
 
         <div class="row">
@@ -69,6 +191,7 @@
         </form>
 
         <script>
+            (function(){
             ERRORS = {
                 'n_trees': 'The number of trees should be strictly positive and an integer.',
                 'no_trees': 'Enter a value for the number of trees.',
@@ -87,6 +210,7 @@
             infos= $('#infos');
             errors=$('#errors');
             trees=$('#trees');
+            test_all=$('#test_all');
 
             for( var i = 0; i < defaults.length; ++i )
             {
@@ -96,8 +220,10 @@
                             data = JSON.parse(data);
                             training.val( data['training'] );
                             updateLineCount();
-                            $('#n_training').val( data['n_training'] );
+                            n_training.val( data['n_training'] );
+                            trees.val( data['n_trees'] );
                             infos.text( data['description'] );
+                            test_all.prop('checked', 'checked');
                             infos.show();
                         });
                     });
@@ -108,12 +234,12 @@
                 nlignes = training.val().split('\n').length;
                 three_out_of_four = Math.floor( nlignes * 3. / 4. );
                 html = '';
-                for( var i = 0; i < nlignes; ++i )
+                for( var i = 1; i <= nlignes; ++i )
                 {
-                    html += '<option value=' + (i+1);
+                    html += '<option value=' + i;
                     if(i === three_out_of_four)
                         html += ' selected="selected"';
-                    html += '>' + (i+1) + '</option>';
+                    html += '>' + (i) + '</option>';
                 }
                 n_training.html( html );
                 infos.hide();
@@ -150,7 +276,7 @@
                 errors.hide();
                 return true;
             }
-            trees.keyup(update_submit);
-
+            trees.keydown(update_submit);
+            })();
         </script>
 {% end %}
