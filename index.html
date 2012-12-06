@@ -22,7 +22,8 @@
                 Basically, Random Forest is a classification algorithm, for predicting labels of records, according to
                 previous well-known labelled records. It's based on a random subspace method:
                 <ul>
-                    <li>A certain number of classification trees are grown, based on training records.</li>
+                    <li>A certain number of classification trees are grown. Each tree is based on randomly picked training records
+                    and a random subset of their features.</li>
                     <li>For each tested records, each tree will emit a vote for the prediction label.</li>
                     <li>The predicted label is the one with the higher votes.</li>
                 </ul>
