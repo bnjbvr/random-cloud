@@ -24,23 +24,25 @@
             <a href="/">Back</a>
         </div>
 
-        <table style="border: solid black 1px;">
-        <thead>
-            <tr>
-                <th>Real label</th>
-                <th colspan='{{ stats['max_labels'] }}'>Labels</th>
-            </tr>
-        </thead>
+        <div class="row">
+            <table style="border: solid black 1px; width:100%;">
+                <thead>
+                    <tr>
+                        <th>Real label</th>
+                        <th colspan='{{ stats['max_labels'] }}'>Labels</th>
+                    </tr>
+                </thead>
 
-        <tbody>
-        {% for r in results %}
-            <tr style='background-color:{% if r.correctly %}#BFB;{% else %}#FBB;{% end if %}'>
-                <td>{{ r.label }}</td>
-                {% for k in r.votes %}
-                    <td>{{ k }} (confidence: {{ r.votes[k][0] }} = {{ r.votes[k][1] }}%)</td>
-                {% end for %}
-            </tr>
-        {% end for %}
-    </tbody>
-        </table>
+                <tbody>
+                    {% for r in results %}
+                        <tr style='background-color:{% if r.correctly %}#BFB;{% else %}#FBB;{% end if %}'>
+                            <td>{{ r.label }}</td>
+                            {% for k in r.votes %}
+                                <td>{{ k }} (confidence: {{ r.votes[k][0] }} = {{ r.votes[k][1] }}%)</td>
+                            {% end for %}
+                        </tr>
+                    {% end for %}
+                </tbody>
+            </table>
+        </div>
 {% end %}
