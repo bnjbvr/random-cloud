@@ -1,12 +1,24 @@
 {% extends "base.html" %}
 
 {% block main %}
-        <h1>RandomCloud</h1>
-
-        <div class="alert-box" style='display: none' id="infos">
+        <div class="row">
+            <div class="right inline two mobile-one columns"></div>
+            <h1 class="ten columns">RandomCloud</h1>
         </div>
 
-        <div class="alert-box alert" style='display: none' id="errors">
+        <div class="row">
+            <div class="right inline two mobile-one columns"></div>
+            <div class="ten columns">Lorem Ipsum toussa toussa</div>
+        </div>
+
+        <div class="row">
+            <div class="right inline two mobile-one columns"></div>
+            <div class="ten columns alert-box" style='display: none' id="infos"></div>
+        </div>
+
+        <div class="row">
+            <div class="right inline two mobile-one columns"></div>
+            <div class="ten columns alert-box alert" style='display: none' id="errors"></div>
         </div>
 
         <form method="post" action="/forest">
@@ -29,9 +41,6 @@
                     <label class="right inline" for="n_training">Training records</label>
                 </div>
                 <div class="ten mobile-three columns">
-                    <!--
-                    <input type="text" id="n_training" name="n_training" placeholder="Number of records used for training" />
-                    -->
                     <select id="n_training" name="n_training">
                     </select>
                 </div>
@@ -97,16 +106,20 @@
 
             function updateLineCount() {
                 nlignes = training.val().split('\n').length;
+                three_out_of_four = Math.floor( nlignes * 3. / 4. );
                 html = '';
                 for( var i = 0; i < nlignes; ++i )
                 {
-                    html += '<option value=' + (i+1) + '>' + (i+1) + '</option>';
+                    html += '<option value=' + (i+1);
+                    if(i === three_out_of_four)
+                        html += ' selected="selected"';
+                    html += '>' + (i+1) + '</option>';
                 }
                 n_training.html( html );
                 infos.hide();
                 errors.hide();
             }
-            training.keyup( updateLineCount );
+            training.keydown( updateLineCount );
 
             submittable = false;
             $('#submit').click(function(e) {
