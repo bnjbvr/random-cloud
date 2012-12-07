@@ -1,10 +1,12 @@
-from RandomForest import *
 """
-Benjamin Bouvier - RandomCloud
+    unit_test_seq_random_forest.py
+    Author: Benjamin Bouvier
 
-Test file for checking that the algorithm works in a sequential
-way.
+    Runs the algorithm works in a sequential mode (not distributed) and
+    computes performances.
 """
+from RandomForest import *
+import random
 
 def print_score( correct, total ):
     print "%s / %s correct (%s %%)" % (correct, total, correct / float(total) * 100.)
@@ -23,9 +25,10 @@ def main():
     files = ['examples', 'titanic', 'digits', 'KDD']
 
     N_TRAINING = 1000
-    N_TREES = 10
+    N_TREES = 100
     CHOSEN_FILE = files[2]
     PRINT_TREES = False
+    TEST = True
 
     records = []
     test_records = []
@@ -40,7 +43,8 @@ def main():
             i += 1
 
     print "learning with %d records" % len(records)
-    dts = grow_forest( N_TREES, records, test_records )
+    random.shuffle( records )
+    dts = grow_forest( N_TREES, records )
 
     if PRINT_TREES:
         for dt in dts:
@@ -49,7 +53,7 @@ def main():
     print "On records used for learning..."
     test_collection( records, dts )
 
-    if len(test_records) > 0:
+    if len(test_records) > 0 and TEST:
         print "On test records..."
         test_collection( test_records, dts )
 

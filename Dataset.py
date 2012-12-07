@@ -1,7 +1,21 @@
+"""
+Dataset.py
+Author: Benjamin Bouvier
+
+Represents a dataset of records. It is a list with augmented features.
+
+Contains the value of Gini for this dataset,
+the mode (= the most frequent label in the dataset),
+the labels (= hashmap with count of the frequency of each label),
+and two booleans label_monotone (indicating that all records have the same
+label) and monotone (indicating that all records have the same feature).
+"""
+
 import math
 
 class Dataset(list):
     def __init__(self, records = []):
+        """Initializes the dataset from an existing list and computes all values."""
         super(Dataset, self).__init__(records)
 
         self.gini = None
@@ -15,10 +29,12 @@ class Dataset(list):
         self.update()
 
     def append(self, record):
+        """Overload of the list.append method. Updates the count of label."""
         super(Dataset, self).append( record )
         self.labels[ record.label ] = self.labels.get( record.label, 0 ) + 1
 
     def update(self):
+        """Updates all values of gini, mode, labels, label_monotone and monotone."""
         self.size = len(self)
 
         # checks values are different
@@ -36,6 +52,7 @@ class Dataset(list):
         self.label_monotone = len( self.labels ) == 1
 
     def all_same(self):
+        """Returns true if all records contain the exact same values for each feature."""
         if self.size == 0:
             return True
         else:

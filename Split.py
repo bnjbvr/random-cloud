@@ -1,6 +1,19 @@
+"""
+    Split.py
+    Author: Benjamin Bouvier
+"""
 from Dataset import *
 
 class Split:
+    """This class is the model of a split.
+    While it is very similar to a DecisionTree, the main difference is that the
+    split contains the real associated left and right datasets.
+
+    Moreover, the Split method contains also a method allowing easily to compute
+    the gain of the split.
+
+    @see DecisionTree.py
+    """
     def __init__(self, is_numerical):
         self.is_numerical = is_numerical
 
@@ -22,14 +35,19 @@ class Split:
         self.feature_range = float(value)
 
     def place(self, records, index):
+        """Puts the records in the good side, with respect to the feature present at the given index.
+
+        Also updates value of gini and gain
+        """
         self.feature_index = index
 
         for r in records:
-            side = self.right
             if self.is_numerical and float(r.features[ self.feature_index ]) <= self.feature_range:
                 side = self.left
             elif not self.is_numerical and r.features[ self.feature_index ] in self.feature_range:
                 side = self.left
+            else:
+                side = self.right
             side.append( r )
 
         self.left.update()

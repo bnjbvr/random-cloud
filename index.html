@@ -192,19 +192,15 @@
         </form>
 
         <script>
+            /**
+                Javascript for taking care of the user input
+                Author: Benjamin Bouvier
+            */
             (function(){
             ERRORS = {
                 'n_trees': 'The number of trees should be strictly positive and an integer.',
                 'no_trees': 'Enter a value for the number of trees.',
-            };
-
-            defaults = ['examples', 'titanic', 'digits'];
-            html = ''
-            for( var i = 0; i < defaults.length; ++i )
-            {
-                html += '<a class="button" id="default' + i + '">' + defaults[i] + '</a>';
             }
-            $('#defaults').html( html );
 
             training = $('#training');
             n_training = $('#n_training');
@@ -213,14 +209,28 @@
             trees=$('#trees');
             test_all=$('#test_all');
 
+            // creating all default dataset buttons and handlers
+            // 1) creating the buttons
+            defaults = ['examples', 'titanic', 'digits'];
+            html = ''
+            for( var i = 0; i < defaults.length; ++i )
+            {
+                html += '<a class="button" id="default' + i + '">' + defaults[i] + '</a>';
+            }
+            $('#defaults').html( html );
+
+            // 2) creating the handlers
             for( var i = 0; i < defaults.length; ++i )
             {
                 (function(a){
                     $('#default' + a).click(function() {
+                        // on click on a button, call the URI /default/ followed by the name of the example set
                         $.get('/default/' + defaults[a], function(data, status) {
                             data = JSON.parse(data);
+                            // fill training records fields and count of lines
                             training.val( data['training'] );
                             updateLineCount();
+                            // fill all records
                             n_training.val( data['n_training'] );
                             trees.val( data['n_trees'] );
                             infos.text( data['description'] );
@@ -231,6 +241,7 @@
                 })(i);
             }
 
+            // function to call every time a character is written in the main textarea
             function updateLineCount() {
                 nlignes = training.val().split('\n').length;
                 three_out_of_four = Math.floor( nlignes * 3. / 4. );
@@ -248,15 +259,14 @@
             }
             training.keydown( updateLineCount );
 
-            submittable = false;
+            // when clicking on the submit button, call can_submit
             $('#submit').click(function(e) {
                 return can_submit();
             });
 
-            function update_submit()
-            {
-                submittable = can_submit();
-            };
+            // this function returns true if and only if the form can be sent.
+            // when called into the handler above, returning false is equivalent
+            // to ignoring the submit event.
             function can_submit()
             {
                 if(trees.val().length === 0)
@@ -277,7 +287,7 @@
                 errors.hide();
                 return true;
             }
-            trees.keydown(update_submit);
+            trees.keydown(function() { can_submit(); });
             })();
         </script>
 {% end %}
