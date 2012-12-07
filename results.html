@@ -1,25 +1,49 @@
 {% extends "base.html" %}
 
 {% block main %}
-        <h3>Results</h3>
-        <p>There is a total of {{ stats['total'] }} records.<br/>
-        Among them, {{ stats['correct'] }} have been correctly labelled, which represents {{ stats['correct_r'] }} % of
-        the records.<br/>
-        <a href="/">Back</a>
-        </p>
-        <table style="border: solid black 1px;">
-        {% for r in results %}
-            <tr style='{% if r.correctly %}
-                color:green;
-                {% else %}
-                color:red;
-                {% end if %}'>
+        <div class="row">
+            <h2 class="centered">Results</h2>
+        </div>
 
-                <td>Real label: {{ r.label }}</td>
-                {% for k in r.votes %}
-                    <td>Prediction: {{ k }} (confidence: {{ r.votes[k][0] }} = {{ r.votes[k][1] }}%)</td>
-                {% end for %}
-            </tr>
-        {% end for %}
-        </table>
+        <div class="row">
+            <h3>Parameters</h3>
+            <ul>
+                <li>Number of trees: {{ stats['n_trees'] }}</li>
+                <li>Number of training records: {{ stats['n_training'] }}</li>
+                <li>Total number of records: {{ stats['total'] }}</li>
+                <li>Test all records? {{ stats['test_all'] }}</li>
+            </ul>
+        </div>
+
+        <div class="row">
+            <h3>RandomCloud Results</h3>
+            <ul>
+		<li>Time of processing: {{ stats['time'] }}</li>
+                <li>Number of correctly labelled records: {{ stats['correct'] }}</li>
+                <li>Percentage of correctly labelled records: {{ stats['correct_r'] }}%</li>
+            </ul>
+            <a href="/">Back</a>
+        </div>
+
+        <div class="row">
+            <table style="border: solid black 1px; width:100%;">
+                <thead>
+                    <tr>
+                        <th>Real label</th>
+                        <th colspan='{{ stats['max_labels'] }}'>Labels</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for r in results %}
+                        <tr style='background-color:{% if r.correctly %}#BFB;{% else %}#FBB;{% end if %}'>
+                            <td>{{ r.label }}</td>
+                            {% for k in r.votes %}
+                                <td>{{ k }} (confidence: {{ r.votes[k][0] }} = {{ r.votes[k][1] }}%)</td>
+                            {% end for %}
+                        </tr>
+                    {% end for %}
+                </tbody>
+            </table>
+        </div>
 {% end %}
