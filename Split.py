@@ -19,7 +19,7 @@ class Split:
         self.feature_range[ value ] = True
 
     def set_numerical_range( self, value ):
-        self.feature_range = value
+        self.feature_range = float(value)
 
     def place(self, records, index):
         self.feature_index = index

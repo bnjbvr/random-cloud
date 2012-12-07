@@ -73,7 +73,7 @@ def generate_numerical_splits( records, index ):
 
     for i in xrange(0, len(possible)-1):
         s = Split(is_numerical=True)
-        s.set_numerical_range( i )
+        s.set_numerical_range( possible[i] )
         s.place( records, index )
         splits.append( s )
 
