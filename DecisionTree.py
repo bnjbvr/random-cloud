@@ -15,7 +15,7 @@ class DecisionTree:
     """
     def __init__(self, index, possible, is_numerical):
         self.criteria = index
-        self.possible = float(possible)
+        self.possible = possible
         self.numerical = is_numerical
 
         self.left = None
