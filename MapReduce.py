@@ -6,6 +6,7 @@
 """
 from RandomForest import *
 from mrjob.job import MRJob
+import config
 
 class MRRandomForest(MRJob):
     """The Random Forest Map / Reduce class defines two map reduce jobs.
@@ -92,7 +93,7 @@ class MRRandomForest(MRJob):
         """Options to pass to mrjob.
         Just changes the interpreter to use pypy."""
         ret = super(MRRandomForest, self).job_runner_kwargs()
-        ret['python_bin'] = '/usr/bin/pypy'
+        ret['python_bin'] = config.PYTHON_INTERPRETER
         return ret
 
     def hadoop_job_runner_kwargs(self):
@@ -104,8 +105,8 @@ class MRRandomForest(MRJob):
         As there are 4 workers (slaves), these values are multiple of 4 here.
         """
         ret = super(MRRandomForest, self).hadoop_job_runner_kwargs()
-        ret['python_archives'] = ['Record.py', 'Dataset.py', 'DecisionTree.py', 'Split.py', 'RandomForest.py']
-        ret['jobconf'] = {'mapred.map.tasks': '4', 'mapred.reduce.tasks': '8'}
+        ret['python_archives'] = ['Record.py', 'Dataset.py', 'DecisionTree.py', 'Split.py', 'RandomForest.py', 'config.py']
+        ret['jobconf'] = {'mapred.map.tasks': config.MAP_TASKS, 'mapred.reduce.tasks': config.REDUCE_TASKS}
         return ret
 
     def steps(self):

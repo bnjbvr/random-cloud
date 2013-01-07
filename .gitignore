@@ -1,4 +1,5 @@
 *.swp
 *.pyc
 web.log
+config.py
 utils/

@@ -1,0 +1,26 @@
+"""
+    This file contains the config options for the project.
+
+    Author: Benjamin Bouvier
+"""
+
+# Path of the python interpreter to use
+PYTHON_INTERPRETER = '/usr/bin/pypy'
+
+# Number of map tasks for the project. As map tasks are really light,
+# there is no need to have a big number of map tasks. Must be a string.
+MAP_TASKS = '4'
+# Number of reduce tasks for the project. Since this part contains the
+# tree growing which is the most expansive, this number should be higher
+# (a multiple of the number of the cores). Must be a string too.
+REDUCE_TASKS = '8'
+
+# The environment to use, as defined by mrjob.
+# Can be 'hadoop' if you have a Hadoop cluster,
+# or 'local' to test locally.
+ENV='local'
+
+# path where the web.py and the web resources are stored
+MAIN_DIR = "/home/directory/of/the/website/"
+# On which port should we launch the website?
+PORT=8000
