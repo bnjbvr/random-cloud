@@ -50,32 +50,32 @@ class MRRandomForest(MRJob):
         """Reduce of first job.
         This function is called for a fixed tree_id. The corresponding function receives all
         records and can use all of them. The tree is grown and the votes are emitted."""
-	try:
-		lines = sorted(lines)
-		reader = csv.reader( lines, delimiter=',' )
+        try:
+            lines = sorted(lines)
+            reader = csv.reader( lines, delimiter=',' )
 
-		testing_records = []
-		training_records = []
-		i = 0
-		for row in reader:
-		    if i < self.options.training_records_number:
-			training_records.append( Record( row[0:-1], row[-1] ) )
-		    else:
-			testing_records.append( Record( row[0:-1], row[-1] ) )
-		    i += 1
+            testing_records = []
+            training_records = []
+            i = 0
+            for row in reader:
+                if i < self.options.training_records_number:
+                    training_records.append( Record( row[0:-1], row[-1] ) )
+                else:
+                    testing_records.append( Record( row[0:-1], row[-1] ) )
+                i += 1
 
-		tree = grow_forest( 1, training_records )[0]
+            tree = grow_forest( 1, training_records )[0]
 
-		i = 0
-		if self.options.test_all:
-		    for r in training_records:
-			yield i, tree.vote(r)
-			i += 1
-		for r in testing_records:
-		    yield i, tree.vote(r)
-		    i += 1
-	except:
-		print "ERROR WHEN COMPUTING TREE: \n", "\n".join(lines)
+            i = 0
+            if self.options.test_all:
+                for r in training_records:
+                    yield i, tree.vote(r)
+                    i += 1
+            for r in testing_records:
+                yield i, tree.vote(r)
+                i += 1
+        except:
+            print "ERROR WHEN COMPUTING TREE: \n", "\n".join(lines)
 
     def repeater(self, record_id, tuple):
         """Map of the second job: just repeat"""
